@@ -165,14 +165,14 @@ argument.
 
 Therefore, indexing a heap global will not produce a resource handle directly.
 Instead, it will return a small internal struct that carries the heap index.
-Indexing `ResourceDescriptorHeap` returns `__heap_resource_info`, and indexing
-`SamplerDescriptorHeap` returns `__heap_sampler_info`. These structs will be
+Indexing `ResourceDescriptorHeap` returns `heap_resource_info`, and indexing
+`SamplerDescriptorHeap` returns `heap_sampler_info`. These structs will be
 defined in the `hlsl::__detail` namespace.
 
 Using two distinct struct types lets the compiler diagnose heap mismatches
 during overload resolution: a sampler type can only be constructed from
-`__heap_sampler_info`, and a CBV/SRV/UAV resource type can only be constructed
-from `__heap_resource_info`.
+`heap_sampler_info`, and a CBV/SRV/UAV resource type can only be constructed
+from `heap_resource_info`.
 
 Every resource class will have an implicit constructor that accepts the
 corresponding heap info struct and it will use this information and Clang
@@ -187,7 +187,7 @@ also supports creating multiple handles for resources with counters.
 
 #### Heap Info Structs
 
-The internal structs `__heap_resource_info` and `__heap_sampler_info` will be
+The internal structs `heap_resource_info` and `heap_sampler_info` will be
 defined in the `hlsl::__detail` namespace by `HLSLExternalSemaSource` before any
 resource classes so they can then be used as arguments of the heap resource
 constructors. The structs will look like this:
@@ -196,11 +196,11 @@ constructors. The structs will look like this:
 namespace hlsl {
 namespace __detail {
 
-struct __heap_resource_info {
+struct heap_resource_info {
   unsigned int Index;
 };
 
-struct __heap_sampler_info {
+struct heap_sampler_info {
   unsigned int Index;
 };
 
@@ -208,8 +208,8 @@ struct __heap_sampler_info {
 } // namespace
 ```
 
-`__heap_resource_info` identifies a descriptor in the CBV/SRV/UAV heap and
-`__heap_sampler_info` identifies a descriptor in the sampler heap. Keeping them
+`heap_resource_info` identifies a descriptor in the CBV/SRV/UAV heap and
+`heap_sampler_info` identifies a descriptor in the sampler heap. Keeping them
 as separate types is what allows heap mismatches to be diagnosed at the point of
 conversion.
 
@@ -217,8 +217,8 @@ conversion.
 
 The global heap variables `ResourceDescriptorHeap` and `SamplerDescriptorHeap`
 can be declared in a new builtin header `hlsl/hlsl_resources.h`, which will be
-included from the default header `hlsl.h`. The typef of these globals will be
-`__resource_descriptor_heap_struct` and `__sampler_descriptor_heap_struct`,
+included from the default header `hlsl.h`. The types of these globals will be
+`resource_descriptor_heap_struct` and `sampler_descriptor_heap_struct`,
 which will be defined in the `hlsl::__detail` namespace in `hlsl/hlsl_detail.h`.
 
 It would look like this:
@@ -228,15 +228,15 @@ It would look like this:
 namespace hlsl {
 namespace __detail {
 
-struct __resource_descriptor_heap_struct {
-  __heap_resource_info operator[](uint32_t Index) {
-    return __heap_resource_info{Index};
+struct resource_descriptor_heap_struct {
+  heap_resource_info operator[](uint32_t Index) {
+    return heap_resource_info{Index};
   }
 };
 
-struct __sampler_descriptor_heap_struct {
-  __heap_sampler_info operator[](uint32_t Index) {
-    return __heap_sampler_info{Index};
+struct sampler_descriptor_heap_struct {
+  heap_sampler_info operator[](uint32_t Index) {
+    return heap_sampler_info{Index};
   }
 };
 
@@ -252,10 +252,10 @@ namespace hlsl {
   __attribute__((availability(platform, introduced = version)))
 
 _HLSL_AVAILABILITY(shadermodel, 6.6)
-static __detail::__resource_descriptor_heap_struct ResourceDescriptorHeap;
+static __detail::resource_descriptor_heap_struct ResourceDescriptorHeap;
 
 _HLSL_AVAILABILITY(shadermodel, 6.6)
-static __detail::__sampler_descriptor_heap_struct SamplerDescriptorHeap;
+static __detail::sampler_descriptor_heap_struct SamplerDescriptorHeap;
 
 } // namespace hlsl
 ```
@@ -264,8 +264,8 @@ static __detail::__sampler_descriptor_heap_struct SamplerDescriptorHeap;
 
 Each resource type will get a new constructor that takes the heap info struct
 for the heap it is allowed to be created from. CBV/SRV/UAV resource types get a
-constructor that takes `__heap_resource_info`, and sampler types get a
-constructor that takes `__heap_sampler_info`. This constructor will call a new
+constructor that takes `heap_resource_info`, and sampler types get a
+constructor that takes `heap_sampler_info`. This constructor will call a new
 Clang builtin function `__builtin_hlsl_resource_handlefromheap`, passing in the
 heap index. Because each resource class only accepts the heap info struct for
 the matching heap, indexing the wrong heap fails to compile.
@@ -278,7 +278,7 @@ namespace hlsl {
 template <typename T> struct RWBuffer {
   ...
 public:
-  RWBuffer(__detail::__heap_resource_info HeapResInfo) {
+  RWBuffer(__detail::heap_resource_info HeapResInfo) {
     __handle = __builtin_hlsl_resource_handlefromheap(__handle, HeapResInfo.Index);
   };
 };
@@ -430,7 +430,7 @@ is a sampler, or `ResourceDescriptorHeapIndexing` otherwise.
   not possible because `__hlsl_resource_t` is parameterized by the resource
   class, contained type, and other type attributes that are unknown at the point
   of heap indexing. The concrete handle type becomes known only when the indexed
-  value is converted to a specific resource type. `__heap_resource_info` and
-  `__heap_sampler_info` defer handle creation until that conversion.
+  value is converted to a specific resource type. `heap_resource_info` and
+  `heap_sampler_info` defer handle creation until that conversion.
 
 ## Acknowledgments
